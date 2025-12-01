@@ -2,8 +2,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
-import ttkbootstrap as tb
-from ttkbootstrap.constants import *
 
 class TaskView:
     def __init__(self, parent, task_controller, project_controller, user_controller):
@@ -27,10 +25,15 @@ class TaskView:
         btn_frame = ttk.Frame(control_frame)
         btn_frame.pack(fill='x')
         
-        ttk.Button(btn_frame, text="Добавить задачу", command=self.show_add_task_dialog).pack(side='left', padx=5)
+        ttk.Button(btn_frame, text="Добавить задачу", command=self.show_add_task_dialog,
+                  style="Accent.TButton").pack(side='left', padx=5)
         ttk.Button(btn_frame, text="Редактировать", command=self.edit_task).pack(side='left', padx=5)
         ttk.Button(btn_frame, text="Удалить", command=self.delete_task).pack(side='left', padx=5)
         ttk.Button(btn_frame, text="Обновить список", command=self.load_tasks).pack(side='left', padx=5)
+        
+        # Создаем стиль для акцентной кнопки
+        style = ttk.Style()
+        style.configure("Accent.TButton", foreground="white", background="#0078d4")
         
         # Поиск
         search_frame = ttk.Frame(control_frame)
@@ -68,12 +71,25 @@ class TaskView:
         self.tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=15)
         
         # Настройка колонок
+        column_widths = {
+            'ID': 50,
+            'Название': 200,
+            'Приоритет': 80,
+            'Статус': 100,
+            'Срок': 120,
+            'Проект': 150,
+            'Исполнитель': 150
+        }
+        
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
+            self.tree.column(col, width=column_widths.get(col, 100))
         
-        self.tree.column('Название', width=200)
-        self.tree.column('ID', width=50)
+        # Настраиваем тэги для цветового кодирования
+        self.tree.tag_configure('high', background='#ffcccc')  # Красный для высокого приоритета
+        self.tree.tag_configure('medium', background='#ffffcc')  # Желтый для среднего
+        self.tree.tag_configure('low', background='#ccffcc')  # Зеленый для низкого
+        self.tree.tag_configure('overdue', foreground='red')  # Красный текст для просроченных
         
         # Добавляем скроллбар
         scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.tree.yview)
@@ -106,6 +122,19 @@ class TaskView:
                 if user:
                     assignee_name = user.username
             
+            # Определяем теги для цветового кодирования
+            tags = []
+            if task.priority == 1:
+                tags.append('high')
+            elif task.priority == 2:
+                tags.append('medium')
+            elif task.priority == 3:
+                tags.append('low')
+            
+            # Помечаем просроченные задачи
+            if task.is_overdue():
+                tags.append('overdue')
+            
             # Добавляем в таблицу
             self.tree.insert('', 'end', values=(
                 task.id,
@@ -115,7 +144,7 @@ class TaskView:
                 task.due_date.strftime('%d.%m.%Y %H:%M'),
                 project_name,
                 assignee_name
-            ))
+            ), tags=tags)
     
     def load_projects(self):
         """Загрузка списка проектов"""
@@ -143,56 +172,65 @@ class TaskView:
         """Показать диалог добавления задачи"""
         dialog = tk.Toplevel(self.frame)
         dialog.title("Добавить задачу")
-        dialog.geometry("500x500")
+        dialog.geometry("500x550")
         dialog.resizable(False, False)
         dialog.transient(self.frame)
         dialog.grab_set()
         
         # Заголовок
-        ttk.Label(dialog, text="Добавить новую задачу", font=('Arial', 12, 'bold')).pack(pady=10)
+        ttk.Label(dialog, text="Добавить новую задачу", 
+                 font=('Arial', 12, 'bold')).pack(pady=10)
         
         # Форма
         form_frame = ttk.Frame(dialog, padding=20)
         form_frame.pack(fill='both', expand=True)
         
+        row = 0
+        
         # Название
-        ttk.Label(form_frame, text="Название:*").grid(row=0, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Название:*").grid(row=row, column=0, sticky='w', pady=5)
         title_entry = ttk.Entry(form_frame, width=40)
-        title_entry.grid(row=0, column=1, pady=5, padx=10)
+        title_entry.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Описание
-        ttk.Label(form_frame, text="Описание:").grid(row=1, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Описание:").grid(row=row, column=0, sticky='w', pady=5)
         description_text = tk.Text(form_frame, width=30, height=5)
-        description_text.grid(row=1, column=1, pady=5, padx=10)
+        description_text.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Приоритет
-        ttk.Label(form_frame, text="Приоритет:*").grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Приоритет:*").grid(row=row, column=0, sticky='w', pady=5)
         priority_var = tk.StringVar(value="2")
         priority_combo = ttk.Combobox(form_frame, textvariable=priority_var, 
                                       values=['1 - Высокий', '2 - Средний', '3 - Низкий'], 
                                       state='readonly', width=20)
-        priority_combo.grid(row=2, column=1, pady=5, padx=10)
+        priority_combo.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Срок выполнения
-        ttk.Label(form_frame, text="Срок выполнения:*").grid(row=3, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Срок выполнения:*").grid(row=row, column=0, sticky='w', pady=5)
         due_date_entry = DateEntry(form_frame, width=20, date_pattern='yyyy-mm-dd')
-        due_date_entry.grid(row=3, column=1, pady=5, padx=10)
+        due_date_entry.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Проект
-        ttk.Label(form_frame, text="Проект:").grid(row=4, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Проект:").grid(row=row, column=0, sticky='w', pady=5)
         project_var = tk.StringVar()
         project_names = ['Без проекта'] + [p.name for p in self.projects]
         project_combo = ttk.Combobox(form_frame, textvariable=project_var, 
                                      values=project_names, state='readonly', width=20)
-        project_combo.grid(row=4, column=1, pady=5, padx=10)
+        project_combo.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Исполнитель
-        ttk.Label(form_frame, text="Исполнитель:").grid(row=5, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Исполнитель:").grid(row=row, column=0, sticky='w', pady=5)
         user_var = tk.StringVar()
         user_names = ['Не назначен'] + [u.username for u in self.users]
         user_combo = ttk.Combobox(form_frame, textvariable=user_var, 
                                   values=user_names, state='readonly', width=20)
-        user_combo.grid(row=5, column=1, pady=5, padx=10)
+        user_combo.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Кнопки
         button_frame = ttk.Frame(dialog)
@@ -245,7 +283,8 @@ class TaskView:
             else:
                 messagebox.showerror("Ошибка", "Не удалось добавить задачу!")
         
-        ttk.Button(button_frame, text="Сохранить", command=save_task).pack(side='left', padx=10)
+        ttk.Button(button_frame, text="Сохранить", command=save_task, 
+                  style="Accent.TButton").pack(side='left', padx=10)
         ttk.Button(button_frame, text="Отмена", command=dialog.destroy).pack(side='left', padx=10)
     
     def edit_task(self):
@@ -267,7 +306,7 @@ class TaskView:
         # Создаем диалог редактирования
         dialog = tk.Toplevel(self.frame)
         dialog.title("Редактировать задачу")
-        dialog.geometry("500x550")
+        dialog.geometry("500x600")
         dialog.resizable(False, False)
         dialog.transient(self.frame)
         dialog.grab_set()
@@ -280,38 +319,64 @@ class TaskView:
         form_frame = ttk.Frame(dialog, padding=20)
         form_frame.pack(fill='both', expand=True)
         
+        row = 0
+        
         # Название
-        ttk.Label(form_frame, text="Название:*").grid(row=0, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Название:*").grid(row=row, column=0, sticky='w', pady=5)
         title_entry = ttk.Entry(form_frame, width=40)
         title_entry.insert(0, task.title)
-        title_entry.grid(row=0, column=1, pady=5, padx=10)
+        title_entry.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Описание
-        ttk.Label(form_frame, text="Описание:").grid(row=1, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Описание:").grid(row=row, column=0, sticky='w', pady=5)
         description_text = tk.Text(form_frame, width=30, height=5)
         description_text.insert("1.0", task.description)
-        description_text.grid(row=1, column=1, pady=5, padx=10)
+        description_text.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Приоритет
-        ttk.Label(form_frame, text="Приоритет:*").grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Приоритет:*").grid(row=row, column=0, sticky='w', pady=5)
         priority_var = tk.StringVar(value=str(task.priority))
         priority_combo = ttk.Combobox(form_frame, textvariable=priority_var, 
                                       values=['1', '2', '3'], state='readonly', width=20)
-        priority_combo.grid(row=2, column=1, pady=5, padx=10)
+        priority_combo.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Статус
-        ttk.Label(form_frame, text="Статус:*").grid(row=3, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Статус:*").grid(row=row, column=0, sticky='w', pady=5)
         status_var = tk.StringVar(value=task.status)
         status_combo = ttk.Combobox(form_frame, textvariable=status_var, 
                                     values=['pending', 'in_progress', 'completed'], 
                                     state='readonly', width=20)
-        status_combo.grid(row=3, column=1, pady=5, padx=10)
+        status_combo.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
         
         # Срок выполнения
-        ttk.Label(form_frame, text="Срок выполнения:*").grid(row=4, column=0, sticky='w', pady=5)
+        ttk.Label(form_frame, text="Срок выполнения:*").grid(row=row, column=0, sticky='w', pady=5)
         due_date_entry = DateEntry(form_frame, width=20, date_pattern='yyyy-mm-dd')
         due_date_entry.set_date(task.due_date)
-        due_date_entry.grid(row=4, column=1, pady=5, padx=10)
+        due_date_entry.grid(row=row, column=1, pady=5, padx=10)
+        row += 1
+        
+        # Проект (только для информации)
+        ttk.Label(form_frame, text="Проект:").grid(row=row, column=0, sticky='w', pady=5)
+        project_name = "Без проекта"
+        if task.project_id:
+            project = self.project_controller.get_project(task.project_id)
+            if project:
+                project_name = project.name
+        ttk.Label(form_frame, text=project_name).grid(row=row, column=1, sticky='w', pady=5, padx=10)
+        row += 1
+        
+        # Исполнитель (только для информации)
+        ttk.Label(form_frame, text="Исполнитель:").grid(row=row, column=0, sticky='w', pady=5)
+        assignee_name = "Не назначен"
+        if task.assignee_id:
+            user = self.user_controller.get_user(task.assignee_id)
+            if user:
+                assignee_name = user.username
+        ttk.Label(form_frame, text=assignee_name).grid(row=row, column=1, sticky='w', pady=5, padx=10)
         
         # Кнопки
         button_frame = ttk.Frame(dialog)
@@ -347,7 +412,8 @@ class TaskView:
             else:
                 messagebox.showerror("Ошибка", "Не удалось обновить задачу!")
         
-        ttk.Button(button_frame, text="Сохранить", command=save_changes).pack(side='left', padx=10)
+        ttk.Button(button_frame, text="Сохранить", command=save_changes,
+                  style="Accent.TButton").pack(side='left', padx=10)
         ttk.Button(button_frame, text="Отмена", command=dialog.destroy).pack(side='left', padx=10)
     
     def delete_task(self):
@@ -400,6 +466,19 @@ class TaskView:
                 if user:
                     assignee_name = user.username
             
+            # Определяем теги для цветового кодирования
+            tags = []
+            if task.priority == 1:
+                tags.append('high')
+            elif task.priority == 2:
+                tags.append('medium')
+            elif task.priority == 3:
+                tags.append('low')
+            
+            # Помечаем просроченные задачи
+            if task.is_overdue():
+                tags.append('overdue')
+            
             # Добавляем в таблицу
             self.tree.insert('', 'end', values=(
                 task.id,
@@ -409,7 +488,7 @@ class TaskView:
                 task.due_date.strftime('%d.%m.%Y %H:%M'),
                 project_name,
                 assignee_name
-            ))
+            ), tags=tags)
     
     def filter_tasks(self):
         """Фильтрация задач"""
@@ -445,6 +524,19 @@ class TaskView:
                 if user:
                     assignee_name = user.username
             
+            # Определяем теги для цветового кодирования
+            tags = []
+            if task.priority == 1:
+                tags.append('high')
+            elif task.priority == 2:
+                tags.append('medium')
+            elif task.priority == 3:
+                tags.append('low')
+            
+            # Помечаем просроченные задачи
+            if task.is_overdue():
+                tags.append('overdue')
+            
             # Добавляем в таблицу
             self.tree.insert('', 'end', values=(
                 task.id,
@@ -454,7 +546,7 @@ class TaskView:
                 task.due_date.strftime('%d.%m.%Y %H:%M'),
                 project_name,
                 assignee_name
-            ))
+            ), tags=tags)
     
     def reset_filters(self):
         """Сброс фильтров"""
